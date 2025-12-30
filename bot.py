@@ -3,33 +3,33 @@ import os
 from flask import Flask
 from threading import Thread
 
-# ============== CONFIG ==============
+# ================= CONFIG =================
 TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = 5778768733   # ايدي الأدمن
-# ====================================
+ADMIN_ID = 5778768733
+# =========================================
 
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is missing")
 
-bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+bot = telebot.TeleBot(TOKEN)
 
-# نخزن: message_id (رسالة الأدمن) -> user_id
+# ربط رسالة الأدمن باليوزر
 reply_map = {}
 
-# ============== FLASK (عشان Render) ==============
+# ================= FLASK =================
 app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "Bot is alive"
 
-# ============== USER SIDE ==============
+# ================= USER SIDE =================
 @bot.message_handler(commands=["start"])
 def start(message):
     bot.reply_to(
         message,
-        "👋 أهلاً بيك\n"
-        "📎 ابعت الملف الكونفج المراد فكة ✅"
+        "📎 ابعت الملف الكونفج المراد فكه\n"
+        "⏳ برجاء الانتظار بعد الإرسال"
     )
 
 @bot.message_handler(content_types=["document"])
@@ -38,31 +38,25 @@ def receive_file(message):
         ADMIN_ID,
         message.document.file_id,
         caption=(
-            "📁 <b>ملف جديد</b>\n"
-            f"📄 الاسم: <code>{message.document.file_name}</code>\n"
+            "📁 ملف جديد\n"
             f"👤 من: @{message.from_user.username}\n"
-            f"🆔 ID: <code>{message.from_user.id}</code>\n\n"
+            f"🆔 ID: {message.from_user.id}\n\n"
             "✏️ اعمل Reply هنا علشان تبعت الرد لنفس الشخص"
         )
     )
 
-    # نربط رسالة الأدمن بالمستخدم
     reply_map[sent.message_id] = message.from_user.id
 
     bot.reply_to(
         message,
         "✅ تم الاستلام\n"
-        "⏳ انتظر بصبر من ساعة لـ ساعتين وهيتم فك الملف\n"
-        "📤 واسترجاعلك الملف المفكوك"
+        "⏱️ انتظر بصبر من ساعة لـ ساعتين\n"
+        "وسيتم فك الملف وإرجاعه لك"
     )
 
-# ============== ADMIN SIDE ==============
+# ================= ADMIN SIDE =================
 @bot.message_handler(func=lambda m: m.reply_to_message is not None)
 def admin_reply(message):
-    # الأدمن بس
-    if message.from_user.id != ADMIN_ID:
-        return
-
     replied_id = message.reply_to_message.message_id
 
     if replied_id not in reply_map:
@@ -82,16 +76,11 @@ def admin_reply(message):
 
         bot.reply_to(message, "✅ تم الإرسال للمستخدم")
 
-        # نحذف الربط بعد الإرسال
-        del reply_map[replied_id]
-
     except Exception as e:
         bot.reply_to(message, f"❌ خطأ:\n{e}")
 
-# ============== RUN ==============
+# ================= RUN =================
 def run_bot():
-    print("🤖 Bot started")
-    bot.delete_webhook(drop_pending_updates=True)
     bot.infinity_polling(skip_pending=True)
 
 def run_flask():
