@@ -3,30 +3,33 @@ import os
 from flask import Flask
 from threading import Thread
 
+# ============== CONFIG ==============
 TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = 5778768733  # عدل لو لزم
+ADMIN_ID = 5778768733   # ايدي الأدمن
+# ====================================
 
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is missing")
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# نخزن الربط بين رسالة الأدمن والمستخدم
+# نخزن: message_id (رسالة الأدمن) -> user_id
 reply_map = {}
 
-# ================= FLASK (عشان Render) =================
+# ============== FLASK (عشان Render) ==============
 app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "Bot is alive"
 
-# ================= USER SIDE =================
+# ============== USER SIDE ==============
 @bot.message_handler(commands=["start"])
 def start(message):
     bot.reply_to(
         message,
-        "👋 أهلاً بيك\n📎 ابعت الملف وهيوصل للأدمن فورًا"
+        "📎 ابعت الملف\n"
+        "وهيتبعت للأدمن مباشرة"
     )
 
 @bot.message_handler(content_types=["document"])
@@ -36,41 +39,44 @@ def receive_file(message):
         message.document.file_id,
         caption=(
             "📁 <b>ملف جديد</b>\n"
+            f"📄 الاسم: <code>{message.document.file_name}</code>\n"
             f"👤 من: @{message.from_user.username}\n"
-            f"🆔 ID: {message.from_user.id}\n\n"
-            "✏️ <b>اعمل Reply هنا علشان تبعت الرد لنفس الشخص</b>"
+            f"🆔 ID: <code>{message.from_user.id}</code>\n\n"
+            "✏️ اعمل Reply هنا علشان تبعت الرد لنفس الشخص"
         )
     )
 
     # نربط رسالة الأدمن بالمستخدم
     reply_map[sent.message_id] = message.from_user.id
 
-    bot.reply_to(message, "✅ الملف وصل للأدمن")
+    bot.reply_to(message, "✅ الملف وصل")
 
-# ================= ADMIN SIDE =================
+# ============== ADMIN SIDE ==============
 @bot.message_handler(func=lambda m: m.reply_to_message is not None)
 def admin_reply(message):
     replied_id = message.reply_to_message.message_id
 
     if replied_id not in reply_map:
-        bot.reply_to(message, "❌ الرد ده مش مربوط بأي مستخدم")
-        return
+        return  # مش رد على ملف مربوط
 
     user_id = reply_map[replied_id]
 
     try:
         if message.content_type == "text":
             bot.send_message(user_id, message.text)
+
         elif message.content_type == "document":
             bot.send_document(user_id, message.document.file_id)
+
         elif message.content_type == "photo":
             bot.send_photo(user_id, message.photo[-1].file_id)
 
         bot.reply_to(message, "✅ تم الإرسال للمستخدم")
+
     except Exception as e:
         bot.reply_to(message, f"❌ خطأ:\n{e}")
 
-# ================= RUN =================
+# ============== RUN ==============
 def run_bot():
     bot.infinity_polling(skip_pending=True)
 
