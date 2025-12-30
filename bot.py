@@ -16,7 +16,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 # نحفظ اليوزر اللي الأدمن هيبعتله
 current_target = {}
 
-# ================= FLASK (Render يحتاج بورت) =================
+# ================= FLASK (عشان Render) =================
 app = Flask(__name__)
 
 @app.route("/")
@@ -61,6 +61,7 @@ def receive_file(message):
 @bot.message_handler(commands=["send"])
 def set_target(message):
     if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "❌ الأمر ده للأدمن فقط")
         return
 
     parts = message.text.split()
@@ -110,9 +111,8 @@ def send_to_user(message):
 def run_bot():
     print("🤖 Bot started")
     bot.remove_webhook()
-    bot.infinity_polling(
-        timeout=30,
-        long_polling_timeout=30
-    )
+    bot.infinity_polling(timeout=30, long_polling_timeout=30)
 
-if __name
+if __name__ == "__main__":
+    threading.Thread(target=run_flask).start()
+    run_bot()
