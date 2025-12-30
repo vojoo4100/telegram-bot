@@ -1,65 +1,70 @@
 import telebot
 import os
 import time
-from flask import Flask
 
-# ================= CONFIG =================
-TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = 5778768733  # Telegram ID بتاعك
-# ==========================================
+# ====== الإعدادات ======
+TOKEN = os.environ.get("BOT_TOKEN")  # التوكن من Render Environment
+ADMIN_ID = 5778768733  # ✏️ غيره لو حابب (ID بتاعك)
 
 if not TOKEN:
-    raise RuntimeError("BOT_TOKEN is missing")
+    raise ValueError("BOT_TOKEN is not set")
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# ================= FLASK (عشان Render) =================
-app = Flask(__name__)
+FILES_DIR = "files"
+os.makedirs(FILES_DIR, exist_ok=True)
 
-@app.route("/")
-def home():
-    return "Bot is alive"
-
-# ================= TELEGRAM =================
+# ====== أوامر ======
 @bot.message_handler(commands=["start"])
 def start(message):
     bot.reply_to(
         message,
         "👋 أهلاً بيك\n"
-        "📎 ابعت الملف وأنا هبعته فورًا لصاحب البوت"
+        "📎 ابعت الملف اللي عايز توصله للإدمن"
     )
 
+# ====== استقبال الملفات ======
 @bot.message_handler(content_types=["document"])
-def receive_file(message):
+def handle_document(message):
     try:
-        bot.send_document(
-            ADMIN_ID,
-            message.document.file_id,
-            caption=(
-                "📁 <b>ملف جديد</b>\n"
-                f"👤 من: @{message.from_user.username}\n"
-                f"🆔 ID: {message.from_user.id}"
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        file_name = message.document.file_name
+        file_path = os.path.join(FILES_DIR, file_name)
+
+        with open(file_path, "wb") as f:
+            f.write(downloaded_file)
+
+        # تأكيد للمرسل
+        bot.reply_to(message, f"✅ تم استلام الملف: {file_name}")
+
+        # إرسال الملف للإدمن
+        with open(file_path, "rb") as f:
+            bot.send_document(
+                ADMIN_ID,
+                f,
+                caption=(
+                    "📥 ملف جديد وصل\n\n"
+                    f"👤 من: {message.from_user.first_name}\n"
+                    f"🆔 ID: {message.from_user.id}\n"
+                    f"📄 اسم الملف: {file_name}"
+                )
             )
-        )
-        bot.reply_to(message, "✅ تم إرسال الملف بنجاح")
+
     except Exception as e:
-        bot.reply_to(message, "❌ حصل خطأ")
+        bot.reply_to(message, "❌ حصل خطأ أثناء استلام الملف")
         bot.send_message(ADMIN_ID, f"⚠️ Error:\n{e}")
 
-# ================= RUN =================
+# ====== تشغيل البوت ======
 def run_bot():
-    print("🤖 Bot polling started")
-    bot.remove_webhook(drop_pending_updates=True)
-    bot.infinity_polling(
-        timeout=30,
-        long_polling_timeout=30,
-        skip_pending=True
-    )
+    print("🤖 Bot is running...")
+    while True:
+        try:
+            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            print("❌ Error, restarting bot:", e)
+            time.sleep(5)
 
 if __name__ == "__main__":
-    # شغّل البوت مرة واحدة فقط
     run_bot()
-
-    # افتح بورت عشان Render
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
