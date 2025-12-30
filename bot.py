@@ -28,8 +28,8 @@ def home():
 def start(message):
     bot.reply_to(
         message,
-        "📎 ابعت الملف\n"
-        "وهيتبعت للأدمن مباشرة"
+        "👋 أهلاً بيك\n"
+        "📎 ابعت الملف الكونفج المراد فكة ✅"
     )
 
 @bot.message_handler(content_types=["document"])
@@ -49,15 +49,24 @@ def receive_file(message):
     # نربط رسالة الأدمن بالمستخدم
     reply_map[sent.message_id] = message.from_user.id
 
-    bot.reply_to(message, "✅ الملف وصل")
+    bot.reply_to(
+        message,
+        "✅ تم الاستلام\n"
+        "⏳ انتظر بصبر من ساعة لـ ساعتين وهيتم فك الملف\n"
+        "📤 واسترجاعلك الملف المفكوك"
+    )
 
 # ============== ADMIN SIDE ==============
 @bot.message_handler(func=lambda m: m.reply_to_message is not None)
 def admin_reply(message):
+    # الأدمن بس
+    if message.from_user.id != ADMIN_ID:
+        return
+
     replied_id = message.reply_to_message.message_id
 
     if replied_id not in reply_map:
-        return  # مش رد على ملف مربوط
+        return
 
     user_id = reply_map[replied_id]
 
@@ -73,11 +82,16 @@ def admin_reply(message):
 
         bot.reply_to(message, "✅ تم الإرسال للمستخدم")
 
+        # نحذف الربط بعد الإرسال
+        del reply_map[replied_id]
+
     except Exception as e:
         bot.reply_to(message, f"❌ خطأ:\n{e}")
 
 # ============== RUN ==============
 def run_bot():
+    print("🤖 Bot started")
+    bot.delete_webhook(drop_pending_updates=True)
     bot.infinity_polling(skip_pending=True)
 
 def run_flask():
